@@ -1,28 +1,36 @@
-import express from "express";
-import cookieParser from "cookie-parser";
-import cors from "cors";
+// Importing necessary modules
+import express from "express"; // Express.js for creating the server
+import cookieParser from "cookie-parser"; // Cookie-parser to parse cookies attached to the client request object
+import cors from "cors"; // CORS to enable Cross-Origin Resource Sharing
 
+// Creating an Express application
 const app = express();
 
-// Configurations and middlwares
+// Configurations and middlewares
 
+// Enabling CORS with specific origin and credentials
 app.use(
     cors({
-        origin: process.env.CORS_ORIGIN,
-        credentials: true,
+        origin: process.env.CORS_ORIGIN, // Setting the origin for CORS
+        credentials: true, // Allowing cookies to be sent with CORS
     })
 );
 
-app.use(express.urlencoded({ extended: true, limit: "16kb" }));
-app.use(express.static("public"));
-app.use(express.json({ limit: "16kb" }));
-app.use(cookieParser());
+// Parsing incoming request bodies in a middleware before the handlers
+app.use(express.urlencoded({ extended: true, limit: "16kb" })); // Parsing URL-encoded data
+app.use(express.static("public")); // Serving static files
+app.use(express.json({ limit: "16kb" })); // Parsing JSON data
+app.use(cookieParser()); // Parsing Cookie header and populating req.cookies with an object keyed by the cookie names
 
-// routes import
+// Importing routes
 import userRouter from "./routes/user.routes.js";
 import tournamentRouter from "./routes/tournament.routes.js";
-// route declaration
-app.use("/api/v1/users", userRouter);
-app.use("/api/v1/tournaments", tournamentRouter);
-// http;//localhost:3000/api/v1/users/register
+import p2pRouter from "./routes/p2p.routes.js";
+
+// Using the imported routes
+app.use("/api/v1/users", userRouter); // User routes
+app.use("/api/v1/tournaments", tournamentRouter); // Tournament routes
+app.use("/api/v1/p2p", p2pRouter); // P2P routes
+
+// Exporting the configured Express application
 export default app;
