@@ -105,7 +105,7 @@ export async function getRoom(data, callback = () => {}) {
  */
 export async function joinRoom(data, callback = () => {}) {
     try {
-        const { roomId, playerId, isGuest, name, rating, color } =
+        const { roomId, playerId, isGuest, name, rating, color, avatar } =
             JSON.parse(data);
 
         this.join(roomId);
@@ -116,7 +116,7 @@ export async function joinRoom(data, callback = () => {}) {
         const value = await redisDb.redis.get(key);
 
         const room = Room.fromPrototype(JSON.parse(value));
-        room.addPlayer({ id: playerId, name, rating }, color);
+        room.addPlayer({ id: playerId, name, rating, avatar }, color);
 
         await redisDb.redis.set(key, JSON.stringify(room));
         await redisDb.redis.expire(key, ROOM_TIMEOUT);
@@ -128,6 +128,7 @@ export async function joinRoom(data, callback = () => {}) {
                 name,
                 rating,
                 color,
+                avatar,
             })
         );
 
@@ -150,7 +151,7 @@ export async function joinRoom(data, callback = () => {}) {
  */
 export async function leaveRoom(data, callback = () => {}) {
     try {
-        const { roomId, playerId, isGuest } = JSON.parse(data);
+        const { roomId, playerId, isGuest, name, rating } = JSON.parse(data);
 
         this.leave(roomId);
 
@@ -158,7 +159,6 @@ export async function leaveRoom(data, callback = () => {}) {
             isGuest ? "guest" : "member"
         }:${roomId}`;
         const value = await redisDb.redis.get(key);
-        // const TTL = await redisDb.redis.ttl(key);
 
         const room = Room.fromPrototype(JSON.parse(value));
         room.removePlayer(playerId);
@@ -170,6 +170,8 @@ export async function leaveRoom(data, callback = () => {}) {
             "user-disconnected",
             JSON.stringify({
                 id: playerId,
+                name,
+                rating,
             })
         );
 
@@ -182,6 +184,29 @@ export async function leaveRoom(data, callback = () => {}) {
         });
     } catch (error) {
         callback({ ...new ApiResponse(500, null, "Internal Server Error") });
+        console.log(error);
+    }
+}
+
+/**
+ * @param {data} data - A JSON string containing the room and move details.
+ */
+export async function sendMove(data) {
+    const { roomId, isGuest, move, FEN, pgn } = JSON.parse(data);
+    try {
+        const key = `chessunity:rooms:${
+            isGuest ? "guest" : "member"
+        }:${roomId}`;
+        const value = await redisDb.redis.get(key);
+        const roomData = Room.fromPrototype(JSON.parse(value));
+        roomData.board = FEN;
+        roomData.pgn = pgn;
+
+        await redisDb.redis.set(key, JSON.stringify(roomData));
+        await redisDb.redis.expire(key, ROOM_TIMEOUT);
+
+        this.to(roomId).emit("move", JSON.stringify(move));
+    } catch (error) {
         console.log(error);
     }
 }
