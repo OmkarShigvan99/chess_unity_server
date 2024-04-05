@@ -1,16 +1,21 @@
 /**
  * This module exports a function that sets up event listeners for a socket.io namespace.
  * The namespace is "/p2p", which is used for peer-to-peer communication.
- * 
+ *
  * @module p2pEvents
  * @param {object} io - The socket.io server instance.
  */
 
-import { getRoom, joinRoom, leaveRoom } from "../controllers/p2p.controller.js";
+import {
+    getRoom,
+    joinRoom,
+    leaveRoom,
+    sendMove,
+} from "../controllers/p2p.controller.js";
 
 /**
  * Sets up event listeners for the "/p2p" namespace.
- * 
+ *
  * @function p2pEvents
  * @param {object} io - The socket.io server instance.
  */
@@ -28,5 +33,8 @@ export function p2pEvents(io) {
 
         // When a client emits "get-room", bind the getRoom function from p2p.controller.js to the socket
         socket.on("get-room", getRoom.bind(socket));
+
+        // Listen for a move from a client
+        socket.on("move", sendMove.bind(socket));
     });
 }

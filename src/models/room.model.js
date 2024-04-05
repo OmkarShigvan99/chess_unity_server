@@ -32,9 +32,9 @@ export class Room {
      * @param {Object} player - The player to remove.
      */
     removePlayer(playerId) {
-        if (this.players.white?.id === playerId) {
+        if (this.players.white && this.players.white.id === playerId) {
             this.players.white = null;
-        } else if (this.players.black?.id === playerId) {
+        } else if (this.players.black && this.players.black.id === playerId) {
             this.players.black = null;
         }
     }
