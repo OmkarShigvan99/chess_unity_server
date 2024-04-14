@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-
+import crypto from "crypto";
 const userSchema = new mongoose.Schema(
     {
         name: {
@@ -53,6 +53,8 @@ const userSchema = new mongoose.Schema(
                 default: 0,
             },
         },
+        passwordResetToken: String,
+        passwordResetExpires: Date,
     },
     { timestamps: true }
 );
@@ -81,6 +83,19 @@ userSchema.methods.generateAccessToken = function () {
         }
     );
 };
+
+userSchema.methods.generatePasswordResetToken = function () {
+    const resetToken = crypto.randomBytes(20).toString("hex"); // Generate token
+    // Set hashed reset token to database
+    this.passwordResetToken = crypto
+        .createHash("sha256")
+        .update(resetToken)
+        .digest("hex");
+    this.passwordResetExpires = Date.now() + 60 * 1000 * 20; // 20 minutes
+
+    return resetToken;
+};
+
 userSchema.methods.generateRefreshToken = function () {
     return jwt.sign(
         {

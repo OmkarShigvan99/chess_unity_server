@@ -1,12 +1,14 @@
 import { asyncHandler } from "../utils/AsyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
+import { mailHelper } from "../utils/mailHelper.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import {
     uploadOnCloudinary,
     deleteFromCloudinary,
 } from "../utils/upload.cloudinary.js";
+import crypto from "crypto";
 
 const generateAccessAndRefreshToken = async (userId) => {
     try {
@@ -175,11 +177,11 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
     const { currentPassword, newPassword, confirmNewPassword } = req.body;
 
     if (!(currentPassword || newPassword)) {
-        // throw new ApiError(400, "All fields must be requried");
+        // throw new ApiError(400, "All fields must be required");
         const getError = new ApiError(
             401,
             "Missing field error",
-            "All fields must be requried"
+            "All fields must be required"
         );
         getError.sendResponse(res);
         throw getError;
@@ -217,6 +219,121 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "Password Changed Successfully"));
 });
 
+const forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        // throw new ApiError(400, "Email is required");
+        const getError = new ApiError(
+            401,
+            "field required error",
+            "Email is required"
+        );
+        getError.sendResponse(res);
+        throw getError;
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        // throw new ApiError(404, "User not found");
+        const getError = new ApiError(
+            404,
+            "Email Error",
+            `User not found with email ${email}`
+        );
+        getError.sendResponse(res);
+        throw getError;
+    }
+
+    // generate password reset token
+    const resetToken = user.generatePasswordResetToken();
+    await user.save({ validateBeforeSave: false });
+
+    const resetUrl = `${req.protocol}://${req.get(
+        "host"
+    )}/api/v1/user/reset-password/${resetToken}`;
+
+    const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
+
+    try {
+        mailHelper({
+            to: user.email,
+            subject: "ChessUnity Password reset token",
+            text: message,
+        });
+
+        return res
+            .status(200)
+            .json(new ApiResponse(203, {}, "Email sent successfully"));
+    } catch (error) {
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+
+        await user.save({ validateBeforeSave: false });
+
+        const getError = new ApiError(
+            401,
+            "Email Error",
+            "Email could not be sent"
+        );
+
+        getError.sendResponse(res);
+        throw error;
+    }
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+    const { resetToken } = req.params;
+    const { password, confirmPassword } = req.body;
+
+    if (
+        !(password || confirmPassword) ||
+        password !== confirmPassword ||
+        !resetToken
+    ) {
+        // throw new ApiError(400, "All fields are required");
+        const getError = new ApiError(
+            401,
+            "Reset Password Error",
+            "All fields are required or password does not match"
+        );
+        getError.sendResponse(res);
+        throw getError;
+    }
+
+    const resetPasswordToken = crypto
+        .createHash("sha256")
+        .update(resetToken)
+        .digest("hex");
+
+    const user = await User.findOne({
+        passwordResetToken: resetPasswordToken,
+        passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+        // throw new ApiError(400, "Invalid Token or Token Expired");
+        const getError = new ApiError(
+            401,
+            "Reset Password Error",
+            "Invalid Token or Token Expired"
+        );
+
+        getError.sendResponse(res);
+        throw getError;
+    }
+
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(203, {}, "Password Reset Successfully"));
+});
+
 const getCurrentUser = asyncHandler(async (req, res) => {
     const getUser = await User.findById(req.user._id).select("-password");
     if (!getUser) {
@@ -237,11 +354,11 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     const { name, email } = req.body;
 
     if (!(name, email)) {
-        // throw new ApiError(400, "Fileds are requried to update");
+        // throw new ApiError(400, "Fields are required to update");
         const getError = new ApiError(
             400,
             "Account Update Error",
-            "Fileds are requried to update"
+            "Fields are required to update"
         );
         getError.sendResponse(res);
         throw getError;
@@ -417,4 +534,6 @@ export {
     getAllUsers,
     getGameStats,
     updateGameStats,
+    forgotPassword,
+    resetPassword,
 };
