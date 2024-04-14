@@ -11,7 +11,7 @@ const app = express();
 // Enabling CORS with specific origin and credentials
 app.use(
     cors({
-        origin: process.env.CORS_ORIGIN, // Setting the origin for CORS
+        origin: [process.env.CORS_ORIGIN, "http://localhost:8000"], // Setting the origin for CORS
         credentials: true, // Allowing cookies to be sent with CORS
     })
 );
