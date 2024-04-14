@@ -3,7 +3,10 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import { uploadOnCloudinary } from "../utils/upload.cloudinary.js";
+import {
+    uploadOnCloudinary,
+    deleteFromCloudinary,
+} from "../utils/upload.cloudinary.js";
 
 const generateAccessAndRefreshToken = async (userId) => {
     try {
@@ -26,7 +29,7 @@ const generateAccessAndRefreshToken = async (userId) => {
         throw (getError.error = error);
     }
 };
-
+// TODO: send mail to user for Mail verification
 const registerUser = asyncHandler(async (req, res) => {
     const { name, username, email, password } = req.body;
 
@@ -41,11 +44,11 @@ const registerUser = asyncHandler(async (req, res) => {
         throw getError;
     }
 
-    const exsitedUser = await User.findOne({
+    const existedUser = await User.findOne({
         $or: [{ email }, { username }],
     });
 
-    if (exsitedUser) {
+    if (existedUser) {
         // throw new ApiError(400, "username or email is already exists ");
         const getError = new ApiError(
             401,
@@ -167,6 +170,7 @@ const logoutUser = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "User Logged out Successfully"));
 });
 
+// TODO: send mail to user for password change
 const changeCurrentPassword = asyncHandler(async (req, res) => {
     const { currentPassword, newPassword, confirmNewPassword } = req.body;
 
@@ -228,7 +232,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 
     return res.status(200).json(new ApiResponse(200, getUser, "User Found"));
 });
-
+// TODO: send mail to user for account update
 const updateAccountDetails = asyncHandler(async (req, res) => {
     const { name, email } = req.body;
 
@@ -252,11 +256,11 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     ).select("-password");
 
     if (!user) {
-        // throw new ApiError(500, "Something wnet Wrong while updating the data");
+        // throw new ApiError(500, "Something went Wrong while updating the data");
         const getError = new ApiError(
             500,
             "Account Update Error",
-            "Something wnet Wrong while updating the data"
+            "Something went Wrong while updating the data"
         );
         getError.sendResponse(res);
         throw getError;
@@ -340,6 +344,19 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
+    // check if avatar is already present or not for deleting the previous one
+    const user = await User.findById(req.user?._id);
+
+    if (user.avatar) {
+        const deletePreviousAvatar = await deleteFromCloudinary(user.avatar.id);
+
+        if (!deletePreviousAvatar) {
+            // throw new ApiError(400, "Error while deleting previous avatar...");
+            const getError = new ApiError(401, "Avatar Delete Error");
+            getError.sendResponse(res);
+            throw getError;
+        }
+    }
     const avatarLocalPath = req.file.path;
 
     if (!avatarLocalPath) {
@@ -350,22 +367,20 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     }
 
     const avatar = await uploadOnCloudinary(avatarLocalPath);
-    if (!avatar.url) {
+
+    if (!avatar) {
         // throw new ApiError(400, "Error while uploading avatar...");
         const getError = new ApiError(401, "Avatar Update Error");
         getError.sendResponse(res);
         throw getError;
     }
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        {
-            $set: { avatar: avatar.url },
-        },
-        {
-            new: true,
-        }
-    ).select("-password");
-
+    user.avatar = {
+        id: avatar.public_id,
+        url: avatar.secure_url,
+    };
+    user.save({ validateBeforeSave: false }, { new: true });
+    user.password = undefined;
+    user.refreshToken = undefined;
     return res
         .status(200)
         .json(new ApiResponse(200, user, "Avatar updates successfully..."));

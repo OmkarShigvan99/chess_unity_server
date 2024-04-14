@@ -32,7 +32,12 @@ const userSchema = new mongoose.Schema(
             type: String,
         },
         avatar: {
-            type: String, //cloudinary url
+            id: {
+                type: String,
+            },
+            url: {
+                type: String,
+            },
         },
         gameInfo: {
             rank: {
