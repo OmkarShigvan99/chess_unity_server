@@ -205,7 +205,7 @@ export async function sendMove(data) {
         await redisDb.redis.set(key, JSON.stringify(roomData));
         await redisDb.redis.expire(key, ROOM_TIMEOUT);
 
-        this.to(roomId).emit("move", JSON.stringify(move));
+        this.to(roomId).emit("remote-move", JSON.stringify(move));
     } catch (error) {
         console.log(error);
     }
