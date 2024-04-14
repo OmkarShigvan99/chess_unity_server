@@ -31,7 +31,7 @@ const generateAccessAndRefreshToken = async (userId) => {
         throw (getError.error = error);
     }
 };
-// TODO: send mail to user for Mail verification
+
 const registerUser = asyncHandler(async (req, res) => {
     const { name, username, email, password } = req.body;
 
@@ -81,6 +81,24 @@ const registerUser = asyncHandler(async (req, res) => {
         );
         getError.sendResponse(res);
         throw getError;
+    }
+    // send mail to welcome user
+
+    const message = `Welcome to ChessUnity ${name}, you have successfully registered with us. Enjoy the game.`;
+    try {
+        mailHelper({
+            to: email,
+            subject: "Welcome to ChessUnity",
+            text: message,
+        });
+    } catch (error) {
+        const getError = new ApiError(
+            401,
+            "Registration Error",
+            "Email could not be sent"
+        );
+        getError.sendResponse(res);
+        throw error;
     }
 
     return res
@@ -172,7 +190,6 @@ const logoutUser = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "User Logged out Successfully"));
 });
 
-// TODO: send mail to user for password change
 const changeCurrentPassword = asyncHandler(async (req, res) => {
     const { currentPassword, newPassword, confirmNewPassword } = req.body;
 
@@ -213,6 +230,25 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
     }
     user.password = newPassword;
     await user.save({ validateBeforeSave: true });
+
+    // send mail to user for password is changed
+    const message = `Your password has been changed successfully. If you did not make this change, please reset.`;
+    try {
+        mailHelper({
+            to: user.email,
+            subject: "Password Changed",
+            text: message,
+        });
+    } catch (error) {
+        // throw new ApiError(401, "Email could not be sent");
+        const getError = new ApiError(
+            401,
+            "Email Error",
+            "Email could not be sent"
+        );
+        getError.sendResponse(res);
+        throw error;
+    }
 
     return res
         .status(200)
@@ -349,7 +385,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 
     return res.status(200).json(new ApiResponse(200, getUser, "User Found"));
 });
-// TODO: send mail to user for account update
+
 const updateAccountDetails = asyncHandler(async (req, res) => {
     const { name, email } = req.body;
 
@@ -382,7 +418,24 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
         getError.sendResponse(res);
         throw getError;
     }
-
+    // send mail to user for account update
+    const message = `Your account has been updated successfully. If you did not make this change, please contact us.`;
+    try {
+        mailHelper({
+            to: user.email,
+            subject: "Account Updated",
+            text: message,
+        });
+    } catch (error) {
+        // throw new ApiError(401, "Email could not be sent");
+        const getError = new ApiError(
+            401,
+            "Email Error",
+            "Email could not be sent"
+        );
+        getError.sendResponse(res);
+        throw error;
+    }
     return res
         .status(200)
         .json(new ApiResponse(200, user, "Data has been updated successfully"));
