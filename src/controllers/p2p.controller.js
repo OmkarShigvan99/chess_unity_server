@@ -114,7 +114,6 @@ export async function joinRoom(data, callback = () => {}) {
             isGuest ? "guest" : "member"
         }:${roomId}`;
         const value = await redisDb.redis.get(key);
-
         const room = Room.fromPrototype(JSON.parse(value));
         room.addPlayer({ id: playerId, name, rating, avatar }, color);
 
@@ -201,6 +200,7 @@ export async function sendMove(data) {
         const roomData = Room.fromPrototype(JSON.parse(value));
         roomData.board = FEN;
         roomData.pgn = pgn;
+        roomData.previousMove = move;
 
         await redisDb.redis.set(key, JSON.stringify(roomData));
         await redisDb.redis.expire(key, ROOM_TIMEOUT);

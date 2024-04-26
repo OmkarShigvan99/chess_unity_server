@@ -16,6 +16,7 @@ export class Room {
         };
         this.board = null; // The current state of the board.
         this.pgn = null; // The Portable Game Notation (PGN) of the game.
+        this.previousMove = null; // The previous move made in the game.
     }
 
     /**
@@ -57,6 +58,7 @@ export class Room {
         room.players = proto.players;
         room.board = proto.board;
         room.pgn = proto.pgn;
+        room.previousMove = proto.previousMove;
         return room;
     }
 }
