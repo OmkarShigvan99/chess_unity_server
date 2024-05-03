@@ -36,5 +36,35 @@ export function p2pEvents(io) {
 
         // Listen for a move from a client
         socket.on("move", sendMove.bind(socket));
+
+        //Listen for a rematch request
+        socket.on("rematch:request", (data) => {
+            // Broadcast the rematch request to the other player
+            socket.to(data.roomId).emit("rematch:request", data);
+        });
+
+        // Listen for a rematch response
+        socket.on("rematch:response", (data) => {
+            // Broadcast the rematch response to the other player
+            socket.to(data.roomId).emit("rematch:response", data);
+        });
+
+        // Listen for a resign
+        socket.on("resign", (data) => {
+            // Broadcast the resign request to the other player
+            socket.to(data.roomId).emit("resignation", data);
+        });
+
+        // Listen for a draw request
+        socket.on("draw:request", (data) => {
+            // Broadcast the draw request to the other player
+            socket.to(data.roomId).emit("draw:request", data);
+        });
+
+        // Listen for a draw response
+        socket.on("draw:response", (data) => {
+            // Broadcast the draw response to the other player
+            socket.to(data.roomId).emit("draw:response", data);
+        });
     });
 }
