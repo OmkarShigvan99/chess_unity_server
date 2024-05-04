@@ -1,16 +1,22 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-
+import morgan from "morgan";
 const app = express();
 
-// Configurations and middlwares
+// Configurations and middlewares
 
 app.use(
     cors({
         origin: process.env.CORS_ORIGIN,
         credentials: true,
     })
+);
+
+app.use(
+    morgan(
+        ' " :status :method  :response-time ms  :url HTTP/:http-version" :res[content-length]  ":user-agent" :remote-addr [:date[clf]] '
+    )
 );
 
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
