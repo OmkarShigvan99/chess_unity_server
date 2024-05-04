@@ -191,7 +191,7 @@ export async function leaveRoom(data, callback = () => {}) {
  * @param {data} data - A JSON string containing the room and move details.
  */
 export async function sendMove(data) {
-    const { roomId, isGuest, move, FEN, pgn } = JSON.parse(data);
+    const { roomId, isGuest, move, FEN, history } = JSON.parse(data);
     try {
         const key = `chessunity:rooms:${
             isGuest ? "guest" : "member"
@@ -199,13 +199,19 @@ export async function sendMove(data) {
         const value = await redisDb.redis.get(key);
         const roomData = Room.fromPrototype(JSON.parse(value));
         roomData.board = FEN;
-        roomData.pgn = pgn;
         roomData.previousMove = move;
+        roomData.history = history;
 
         await redisDb.redis.set(key, JSON.stringify(roomData));
         await redisDb.redis.expire(key, ROOM_TIMEOUT);
 
-        this.to(roomId).emit("remote-move", JSON.stringify(move));
+        this.to(roomId).emit(
+            "remote-move",
+            JSON.stringify({
+                move,
+                history,
+            })
+        );
     } catch (error) {
         console.log(error);
     }
