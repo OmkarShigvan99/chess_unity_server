@@ -1,9 +1,14 @@
 import { asyncHandler } from "../utils/AsyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
+import { mailHelper } from "../utils/mailHelper.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import { uploadOnCloudinary } from "../utils/upload.cloudinary.js";
+import {
+    uploadOnCloudinary,
+    deleteFromCloudinary,
+} from "../utils/upload.cloudinary.js";
+import crypto from "crypto";
 
 const generateAccessAndRefreshToken = async (userId) => {
     try {
@@ -41,11 +46,11 @@ const registerUser = asyncHandler(async (req, res) => {
         throw getError;
     }
 
-    const exsitedUser = await User.findOne({
+    const existedUser = await User.findOne({
         $or: [{ email }, { username }],
     });
 
-    if (exsitedUser) {
+    if (existedUser) {
         // throw new ApiError(400, "username or email is already exists ");
         const getError = new ApiError(
             401,
@@ -76,6 +81,24 @@ const registerUser = asyncHandler(async (req, res) => {
         );
         getError.sendResponse(res);
         throw getError;
+    }
+    // send mail to welcome user
+
+    const message = `Welcome to ChessUnity ${name}, you have successfully registered with us. Enjoy the game.`;
+    try {
+        mailHelper({
+            to: email,
+            subject: "Welcome to ChessUnity",
+            text: message,
+        });
+    } catch (error) {
+        const getError = new ApiError(
+            401,
+            "Registration Error",
+            "Email could not be sent"
+        );
+        getError.sendResponse(res);
+        throw error;
     }
 
     return res
@@ -171,11 +194,11 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
     const { currentPassword, newPassword, confirmNewPassword } = req.body;
 
     if (!(currentPassword || newPassword)) {
-        // throw new ApiError(400, "All fields must be requried");
+        // throw new ApiError(400, "All fields must be required");
         const getError = new ApiError(
             401,
             "Missing field error",
-            "All fields must be requried"
+            "All fields must be required"
         );
         getError.sendResponse(res);
         throw getError;
@@ -208,9 +231,143 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
     user.password = newPassword;
     await user.save({ validateBeforeSave: true });
 
+    // send mail to user for password is changed
+    const message = `Your password has been changed successfully. If you did not make this change, please reset.`;
+    try {
+        mailHelper({
+            to: user.email,
+            subject: "Password Changed",
+            text: message,
+        });
+    } catch (error) {
+        // throw new ApiError(401, "Email could not be sent");
+        const getError = new ApiError(
+            401,
+            "Email Error",
+            "Email could not be sent"
+        );
+        getError.sendResponse(res);
+        throw error;
+    }
+
     return res
         .status(200)
         .json(new ApiResponse(200, {}, "Password Changed Successfully"));
+});
+
+const forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        // throw new ApiError(400, "Email is required");
+        const getError = new ApiError(
+            401,
+            "field required error",
+            "Email is required"
+        );
+        getError.sendResponse(res);
+        throw getError;
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        // throw new ApiError(404, "User not found");
+        const getError = new ApiError(
+            404,
+            "Email Error",
+            `User not found with email ${email}`
+        );
+        getError.sendResponse(res);
+        throw getError;
+    }
+
+    // generate password reset token
+    const resetToken = user.generatePasswordResetToken();
+    await user.save({ validateBeforeSave: false });
+
+    const resetUrl = `${req.protocol}://${req.get(
+        "host"
+    )}/api/v1/users/reset-password/${resetToken}`;
+
+    const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
+
+    try {
+        mailHelper({
+            to: user.email,
+            subject: "ChessUnity Password reset token",
+            text: message,
+        });
+
+        return res
+            .status(200)
+            .json(new ApiResponse(203, {}, "Email sent successfully"));
+    } catch (error) {
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+
+        await user.save({ validateBeforeSave: false });
+
+        const getError = new ApiError(
+            401,
+            "Email Error",
+            "Email could not be sent"
+        );
+
+        getError.sendResponse(res);
+        throw error;
+    }
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+    const { resetToken } = req.params;
+    const { password, confirmPassword } = req.body;
+
+    if (
+        !(password || confirmPassword) ||
+        password !== confirmPassword ||
+        !resetToken
+    ) {
+        // throw new ApiError(400, "All fields are required");
+        const getError = new ApiError(
+            401,
+            "Reset Password Error",
+            "All fields are required or password does not match"
+        );
+        getError.sendResponse(res);
+        throw getError;
+    }
+
+    const resetPasswordToken = crypto
+        .createHash("sha256")
+        .update(resetToken)
+        .digest("hex");
+
+    const user = await User.findOne({
+        passwordResetToken: resetPasswordToken,
+        passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+        // throw new ApiError(400, "Invalid Token or Token Expired");
+        const getError = new ApiError(
+            401,
+            "Reset Password Error",
+            "Invalid Token or Token Expired"
+        );
+
+        getError.sendResponse(res);
+        throw getError;
+    }
+
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(203, {}, "Password Reset Successfully"));
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
@@ -232,12 +389,12 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 const updateAccountDetails = asyncHandler(async (req, res) => {
     const { name, email } = req.body;
 
-    if (!(name, email)) {
-        // throw new ApiError(400, "Fileds are requried to update");
+    if (!(name || email)) {
+        // throw new ApiError(400, "Fields are required to update");
         const getError = new ApiError(
             400,
             "Account Update Error",
-            "Fileds are requried to update"
+            "Fields are required to update"
         );
         getError.sendResponse(res);
         throw getError;
@@ -252,16 +409,33 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     ).select("-password");
 
     if (!user) {
-        // throw new ApiError(500, "Something wnet Wrong while updating the data");
+        // throw new ApiError(500, "Something went Wrong while updating the data");
         const getError = new ApiError(
             500,
             "Account Update Error",
-            "Something wnet Wrong while updating the data"
+            "Something went Wrong while updating the data"
         );
         getError.sendResponse(res);
         throw getError;
     }
-
+    // send mail to user for account update
+    const message = `Your account has been updated successfully. If you did not make this change, please contact us.`;
+    try {
+        mailHelper({
+            to: user.email,
+            subject: "Account Updated",
+            text: message,
+        });
+    } catch (error) {
+        // throw new ApiError(401, "Email could not be sent");
+        const getError = new ApiError(
+            401,
+            "Email Error",
+            "Email could not be sent"
+        );
+        getError.sendResponse(res);
+        throw error;
+    }
     return res
         .status(200)
         .json(new ApiResponse(200, user, "Data has been updated successfully"));
@@ -340,6 +514,19 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
+    // check if avatar is already present or not for deleting the previous one
+    const user = await User.findById(req.user?._id);
+
+    if (user.avatar) {
+        const deletePreviousAvatar = await deleteFromCloudinary(user.avatar.id);
+
+        if (!deletePreviousAvatar) {
+            // throw new ApiError(400, "Error while deleting previous avatar...");
+            const getError = new ApiError(401, "Avatar Delete Error");
+            getError.sendResponse(res);
+            throw getError;
+        }
+    }
     const avatarLocalPath = req.file.path;
 
     if (!avatarLocalPath) {
@@ -350,22 +537,20 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     }
 
     const avatar = await uploadOnCloudinary(avatarLocalPath);
-    if (!avatar.url) {
+
+    if (!avatar) {
         // throw new ApiError(400, "Error while uploading avatar...");
         const getError = new ApiError(401, "Avatar Update Error");
         getError.sendResponse(res);
         throw getError;
     }
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        {
-            $set: { avatar: avatar.url },
-        },
-        {
-            new: true,
-        }
-    ).select("-password");
-
+    user.avatar = {
+        id: avatar.public_id,
+        url: avatar.secure_url,
+    };
+    user.save({ validateBeforeSave: false }, { new: true });
+    user.password = undefined;
+    user.refreshToken = undefined;
     return res
         .status(200)
         .json(new ApiResponse(200, user, "Avatar updates successfully..."));
@@ -402,4 +587,6 @@ export {
     getAllUsers,
     getGameStats,
     updateGameStats,
+    forgotPassword,
+    resetPassword,
 };
