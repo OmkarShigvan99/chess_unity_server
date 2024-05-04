@@ -1,9 +1,7 @@
-// Importing necessary modules
-import express from "express"; // Express.js for creating the server
-import cookieParser from "cookie-parser"; // Cookie-parser to parse cookies attached to the client request object
-import cors from "cors"; // CORS to enable Cross-Origin Resource Sharing
-
-// Creating an Express application
+import express from "express";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import morgan from "morgan";
 const app = express();
 
 // Configurations and middlewares
@@ -16,13 +14,18 @@ app.use(
     })
 );
 
-// Parsing incoming request bodies in a middleware before the handlers
-app.use(express.urlencoded({ extended: true, limit: "16kb" })); // Parsing URL-encoded data
-app.use(express.static("public")); // Serving static files
-app.use(express.json({ limit: "16kb" })); // Parsing JSON data
-app.use(cookieParser()); // Parsing Cookie header and populating req.cookies with an object keyed by the cookie names
+app.use(
+    morgan(
+        ' " :status :method  :response-time ms  :url HTTP/:http-version" :res[content-length]  ":user-agent" :remote-addr [:date[clf]] '
+    )
+);
 
-// Importing routes
+app.use(express.urlencoded({ extended: true, limit: "16kb" }));
+app.use(express.static("public"));
+app.use(express.json({ limit: "16kb" }));
+app.use(cookieParser());
+
+// routes import
 import userRouter from "./routes/user.routes.js";
 import tournamentRouter from "./routes/tournament.routes.js";
 import p2pRouter from "./routes/p2p.routes.js";
