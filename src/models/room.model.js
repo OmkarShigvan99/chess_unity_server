@@ -2,6 +2,9 @@
  * Class representing a Room.
  */
 export class Room {
+    // The initial state of the board.
+    static initialBoard = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+
     /**
      * Create a room.
      * @param {string} roomId - The id of the room.
@@ -17,6 +20,10 @@ export class Room {
         this.board = null; // The current state of the board.
         this.previousMove = null; // The previous move made in the game.
         this.history = []; // The moves made in the game.
+        this.status = "ongoing"; // The status of the room.
+        this.winner = null; // The winner of the game.
+        this.draw_reason = null; // The reason for the draw.
+        this.win_reason = null; // The reason for the win.
     }
 
     /**
@@ -59,6 +66,10 @@ export class Room {
         room.board = proto.board;
         room.previousMove = proto.previousMove;
         room.history = proto.history;
+        room.status = proto.status;
+        room.winner = proto.winner;
+        room.draw_reason = proto.draw_reason;
+        room.win_reason = proto.win_reason;
         return room;
     }
 }

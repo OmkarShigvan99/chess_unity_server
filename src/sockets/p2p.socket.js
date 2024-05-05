@@ -10,6 +10,7 @@ import {
     getRoom,
     joinRoom,
     leaveRoom,
+    resetGame,
     sendMove,
 } from "../controllers/p2p.controller.js";
 
@@ -66,5 +67,8 @@ export function p2pEvents(io) {
             // Broadcast the draw response to the other player
             socket.to(data.roomId).emit("draw:response", data);
         });
+
+        // Listen for game reset request
+        socket.on("reset", resetGame.bind(p2p));
     });
 }

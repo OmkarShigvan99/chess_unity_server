@@ -67,14 +67,14 @@ export const deleteRoom = asyncHandler(async (req, res) => {
 });
 
 /**
- * Asynchronously gets a room.
- * @param {string} data - A JSON string containing the room details.
- * @throws {ApiError} Throws an ApiError if there is an error during the room retrieval.
- * @throws {ApiError} Throws an ApiError if the room is not found.
+ * Retrieves a room from the database.
+ * @param {Object} data - The data object containing the roomId and isGuest properties.
+ * @param {Function} callback - The callback function to be called with the result.
+ * @returns {Promise<void>} - A promise that resolves when the room is retrieved.
  */
 export async function getRoom(data, callback = () => {}) {
     try {
-        const { roomId, isGuest } = JSON.parse(data);
+        const { roomId, isGuest } = data;
         const key = `chessunity:rooms:${
             isGuest ? "guest" : "member"
         }:${roomId}`;
@@ -98,15 +98,14 @@ export async function getRoom(data, callback = () => {}) {
 }
 
 /**
- * Asynchronously joins a player to a room.
- * @param {string} data - A JSON string containing the player and room details.
- * @param {Function} [callback=() => {}] - An optional callback function.
- * @throws {ApiError} Throws an ApiError if there is an error during the room joining.
+ * Joins a room and adds a player to it.
+ * @param {Object} data - The data containing information about the room and player.
+ * @param {Function} callback - The callback function to be called after joining the room.
+ * @returns {Promise<void>} - A promise that resolves after joining the room.
  */
 export async function joinRoom(data, callback = () => {}) {
     try {
-        const { roomId, playerId, isGuest, name, rating, color, avatar } =
-            JSON.parse(data);
+        const { roomId, playerId, isGuest, name, rating, color, avatar } = data;
 
         this.join(roomId);
 
@@ -120,16 +119,13 @@ export async function joinRoom(data, callback = () => {}) {
         await redisDb.redis.set(key, JSON.stringify(room));
         await redisDb.redis.expire(key, ROOM_TIMEOUT);
 
-        this.to(roomId).emit(
-            "user-connected",
-            JSON.stringify({
-                id: playerId,
-                name,
-                rating,
-                color,
-                avatar,
-            })
-        );
+        this.to(roomId).emit("user-connected", {
+            id: playerId,
+            name,
+            rating,
+            color,
+            avatar,
+        });
 
         callback({
             ...new ApiResponse(200, room, "Successfully joined room"),
@@ -150,7 +146,7 @@ export async function joinRoom(data, callback = () => {}) {
  */
 export async function leaveRoom(data, callback = () => {}) {
     try {
-        const { roomId, playerId, isGuest, name, rating } = JSON.parse(data);
+        const { roomId, playerId, isGuest, name, rating } = data;
 
         this.leave(roomId);
 
@@ -165,14 +161,11 @@ export async function leaveRoom(data, callback = () => {}) {
         await redisDb.redis.set(key, JSON.stringify(room));
         await redisDb.redis.expire(key, ROOM_TIMEOUT);
 
-        this.to(roomId).emit(
-            "user-disconnected",
-            JSON.stringify({
-                id: playerId,
-                name,
-                rating,
-            })
-        );
+        this.to(roomId).emit("user-disconnected", {
+            id: playerId,
+            name,
+            rating,
+        });
 
         if (room.isEmpty()) {
             await redisDb.redis.del(key);
@@ -188,11 +181,18 @@ export async function leaveRoom(data, callback = () => {}) {
 }
 
 /**
- * @param {data} data - A JSON string containing the room and move details.
+ * Sends a move to the server and updates the room data.
+ * @param {Object} data - The move data.
+ * @param {string} data.roomId - The ID of the room.
+ * @param {boolean} data.isGuest - Indicates if the player is a guest.
+ * @param {string} data.move - The move made by the player.
+ * @param {string} data.FEN - The FEN notation of the chess board.
+ * @param {Array} data.history - The move history.
+ * @returns {Promise<void>} - A promise that resolves when the move is sent and the room data is updated.
  */
 export async function sendMove(data) {
-    const { roomId, isGuest, move, FEN, history } = JSON.parse(data);
     try {
+        const { roomId, isGuest, move, FEN, history } = data;
         const key = `chessunity:rooms:${
             isGuest ? "guest" : "member"
         }:${roomId}`;
@@ -205,13 +205,40 @@ export async function sendMove(data) {
         await redisDb.redis.set(key, JSON.stringify(roomData));
         await redisDb.redis.expire(key, ROOM_TIMEOUT);
 
-        this.to(roomId).emit(
-            "remote-move",
-            JSON.stringify({
-                move,
-                history,
-            })
-        );
+        this.to(roomId).emit("remote-move", {
+            move,
+            history,
+        });
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+// function to reset the game
+/**
+ * Resets the game by updating the board, history, and emitting a "game:reset" event.
+ * @param {Object} data - The data object containing the roomId and isGuest properties.
+ * @returns {Promise<void>} - A promise that resolves when the game is reset.
+ */
+export async function resetGame(data) {
+    try {
+        const { roomId, isGuest } = data;
+        const key = `chessunity:rooms:${
+            isGuest ? "guest" : "member"
+        }:${roomId}`;
+        const value = await redisDb.redis.get(key);
+        const roomData = Room.fromPrototype(JSON.parse(value));
+        roomData.board = Room.initialBoard;
+        roomData.previousMove = null;
+        roomData.history = [];
+
+        await redisDb.redis.set(key, JSON.stringify(roomData));
+        await redisDb.redis.expire(key, ROOM_TIMEOUT);
+
+        this.to(roomId).emit("game:reset", {
+            board: roomData.board,
+            history: roomData.history,
+        });
     } catch (error) {
         console.log(error);
     }
