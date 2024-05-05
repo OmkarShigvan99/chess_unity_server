@@ -29,11 +29,13 @@ app.use(cookieParser());
 import userRouter from "./routes/user.routes.js";
 import tournamentRouter from "./routes/tournament.routes.js";
 import p2pRouter from "./routes/p2p.routes.js";
+import gameRouter from "./routes/game.routes.js";
 
 // Using the imported routes
 app.use("/api/v1/users", userRouter); // User routes
 app.use("/api/v1/tournaments", tournamentRouter); // Tournament routes
 app.use("/api/v1/p2p", p2pRouter); // P2P routes
+app.use("/api/v1/games", gameRouter); // Game routes
 
 // Exporting the configured Express application
 export default app;

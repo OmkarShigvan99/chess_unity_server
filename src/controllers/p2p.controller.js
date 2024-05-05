@@ -34,7 +34,7 @@ export const createRoom = asyncHandler(async (req, res) => {
         );
 
         getError.sendResponse(res);
-        throw getError;
+        throw error;
     }
 });
 
@@ -62,7 +62,7 @@ export const deleteRoom = asyncHandler(async (req, res) => {
             error.message
         );
         getError.sendResponse(res);
-        throw getError;
+        throw error;
     }
 });
 
