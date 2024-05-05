@@ -5,17 +5,66 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 
 const createGame = asyncHandler(async (req, res) => {
     try {
-        const game = new Game(req.body);
-        const savedGame = await game.save();
+        const {
+            roomId,
+            hostId,
+            players,
+            board: lastBoardState,
+            history: moves,
+            status,
+            winner,
+            draw_reason: drawReason,
+            win_reason: winReason,
+            type: gameType,
+            tournamentId,
+        } = req.body;
+
+        const requiredFields = {
+            roomId,
+            hostId,
+            players,
+            lastBoardState,
+            moves,
+        };
+
+        for (const [key, value] of Object.entries(requiredFields)) {
+            if (!value) {
+                const getError = new ApiError(
+                    400,
+                    "Missing Fields",
+                    `The field '${key}' is required`
+                );
+                getError.sendResponse(res);
+                throw getError;
+            }
+        }
+        const gameData = {
+            roomId,
+            hostId,
+            players,
+            lastBoardState,
+            moves,
+            status: status || undefined,
+            winner: winner || undefined,
+            drawReason: drawReason || undefined,
+            winReason: winReason || undefined,
+            gameType: gameType || undefined,
+            tournamentId: tournamentId || undefined,
+        };
+
+        const game = await Game.create(gameData);
+
+        if (!game) {
+            const getError = new ApiError(
+                401,
+                "Save Game Error",
+                "Error saving game to the database"
+            );
+            getError.sendResponse(res);
+        }
         return res
             .status(201)
-            .json(
-                new ApiResponse(
-                    201,
-                    { game: savedGame },
-                    "Game created successfully"
-                )
-            );
+            .json(new ApiResponse(201, game, "Game created successfully"));
     } catch (error) {
         const getError = new ApiError(
             401,
@@ -29,10 +78,8 @@ const createGame = asyncHandler(async (req, res) => {
 
 const updateGame = asyncHandler(async (req, res) => {
     try {
-        const game = await Game.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
-            runValidators: true,
-        });
+        const {} = req.body;
+
         if (!game) {
             const getError = new ApiError(
                 404,
