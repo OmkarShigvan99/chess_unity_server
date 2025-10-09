@@ -548,7 +548,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         id: avatar.public_id,
         url: avatar.secure_url,
     };
-    user.save({ validateBeforeSave: false }, { new: true });
+    await user.save({ validateBeforeSave: false });
     user.password = undefined;
     user.refreshToken = undefined;
     return res

@@ -121,4 +121,7 @@ dist
 # VS CODE
 /.vscode
 
+# chess engine
+chess_engine/*
+
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Node

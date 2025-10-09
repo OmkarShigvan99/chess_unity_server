@@ -4,7 +4,7 @@
 export class Room {
     // The initial state of the board.
     static initialBoard = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
-
+    static initialFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     /**
      * Create a room.
      * @param {string} roomId - The id of the room.

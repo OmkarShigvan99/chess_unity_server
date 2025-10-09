@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import { createServer } from "http";
 import { p2pEvents } from "./p2p.socket.js";
+import { chessBotEvents } from "./chessbot.socket.js";
 
 /**
  * Represents a SocketIO server.
@@ -20,8 +21,8 @@ class SocketIO {
             const httpServer = createServer(app);
             this.io = new Server(httpServer, {
                 cors: {
-                    origin: process.env.CORS_ORIGIN,
-                    methods: ["GET", "POST"],
+                    origin: [process.env.CORS_ORIGIN, "http://localhost:8000"],
+                    credentials: true,
                 },
             });
             this.#registerEvents();
@@ -38,6 +39,7 @@ class SocketIO {
      */
     #registerEvents() {
         p2pEvents(this.io);
+        chessBotEvents(this.io);
     }
 }
 

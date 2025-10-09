@@ -60,10 +60,28 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.pre("save", async function (next) {
-    if (!this.isModified("password")) return next();
+    // Only proceed if password field was actually modified
+    if (!this.isModified("password")) {
+        return next();
+    }
 
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
+    // Check if password exists and is valid before hashing
+    if (
+        !this.password ||
+        typeof this.password !== "string" ||
+        this.password.trim().length === 0
+    ) {
+        return next(
+            new Error("Password is required and must be a non-empty string")
+        );
+    }
+
+    try {
+        this.password = await bcrypt.hash(this.password, 10);
+        next();
+    } catch (error) {
+        next(error);
+    }
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {
