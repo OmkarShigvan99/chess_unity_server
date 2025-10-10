@@ -10,14 +10,11 @@ export const verifyJwt = asyncHandler(async (req, res, next) => {
             req.header("Authorization")?.replace("Bearer ", "");
 
         if (!token) {
-            // throw new ApiError(401, "Unauthozied request");
-            const getError = new ApiError(
+            throw new ApiError(
                 401,
                 "Autherization Error",
                 "Unauthorized request"
             );
-            getError.sendResponse(res);
-            throw getError;
         }
 
         const decodeToken = await jwt.verify(
@@ -26,14 +23,11 @@ export const verifyJwt = asyncHandler(async (req, res, next) => {
         );
 
         if (!decodeToken) {
-            // throw new ApiError(401, "Invalid access Token");
-            const getError = new ApiError(
+            throw new ApiError(
                 401,
                 "Autherization Error",
                 "Invalid access Token"
             );
-            getError.sendResponse(res);
-            throw getError;
         }
 
         const user = await User.findById(decodeToken?._id).select(
@@ -41,26 +35,23 @@ export const verifyJwt = asyncHandler(async (req, res, next) => {
         );
 
         if (!user) {
-            // throw new ApiError(401, "Unauthorized token for the user");
-            const getError = new ApiError(
+            throw new ApiError(
                 401,
                 "Autherization Error",
                 "Unauthorized token for the user"
             );
-            getError.sendResponse(res);
-            throw getError;
         }
 
         req.user = user;
         next();
     } catch (error) {
-        // throw new ApiError(401, error.message || "Invalid Token");
-        const getError = new ApiError(
+        if (error instanceof ApiError) {
+            throw error;
+        }
+        throw new ApiError(
             401,
             "Autherization Error",
-            error.message
+            error.message || "Invalid Token"
         );
-        getError.sendResponse(res);
-        throw getError;
     }
 });
