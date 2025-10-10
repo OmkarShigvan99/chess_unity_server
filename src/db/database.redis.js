@@ -23,16 +23,47 @@ class RedisDB {
      */
     async connect() {
         try {
-            // Create a new Redis client instance
-            this.redis = new Redis(process.env.REDIS_URL, { tls: {} });
+            // Clean the Redis URL by removing any encoded quotes
+            let redisUrl = process.env.REDIS_URL;
+            if (redisUrl) {
+                // Remove encoded quotes and any surrounding quotes
+                redisUrl = redisUrl.replace(/%22/g, "").replace(/^"|"$/g, "");
+            }
 
-            // // Connect to the Redis server
-            // await this.redis.connect();
+            if (!redisUrl) {
+                throw new Error("REDIS_URL environment variable is not set");
+            }
+
             console.log(
-                `Connected to Redis successfully... ${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`
-            );
+                "Connecting to Redis with URL:",
+                redisUrl.replace(/:[^:@]*@/, ":***@")
+            ); // Log URL with masked password
+
+            // Create a new Redis client instance with proper TLS configuration for Upstash
+            this.redis = new Redis(redisUrl, {
+                tls: {},
+                retryDelayOnFailover: 100,
+                enableReadyCheck: false,
+                lazyConnect: true,
+            });
+
+            // Add error handler
+            this.redis.on("error", (err) => {
+                console.error("Redis connection error:", err.message);
+            });
+
+            // Add connect handler
+            this.redis.on("connect", () => {
+                console.log("Redis connected successfully");
+            });
+
+            // Test the connection
+            await this.redis.ping();
+
+            console.log("Connected to Redis successfully...");
             return Promise.resolve();
         } catch (error) {
+            console.error("Redis connection failed:", error.message);
             // If there is an error, reject the promise with the error
             return Promise.reject(error);
         }
