@@ -2,63 +2,69 @@ import mongoose from "mongoose";
 const gameSchema = new mongoose.Schema(
     {
         hostId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
+            type: mongoose.Schema.Types.Mixed, // Can be ObjectId or String for guest users
             required: true,
         },
         roomId: {
             type: String,
             required: true,
+            // Remove unique constraint - multiple games can be played in the same room
         },
-        players: [
-            {
-                white: {
-                    id: {
-                        type: mongoose.Schema.Types.ObjectId,
-                        ref: "User",
-                    },
-                    name: {
-                        type: String,
-                        required: true,
-                    },
-                    rating: {
-                        type: Number,
-                    },
-                    avatar: {
-                        type: String,
-                    },
+        gameInstanceId: {
+            type: String,
+            required: true,
+            unique: true, // Each game instance must be unique
+        },
+        players: {
+            white: {
+                id: {
+                    type: mongoose.Schema.Types.Mixed, // Can be ObjectId or String for guest users
                 },
-                black: {
-                    id: {
-                        type: mongoose.Schema.Types.ObjectId,
-                        ref: "User",
-                    },
-                    name: {
-                        type: String,
-                        required: true,
-                    },
-                    rating: {
-                        type: Number,
-                    },
-                    avatar: {
-                        type: String,
-                    },
+                name: {
+                    type: String,
+                    required: true,
+                },
+                rating: {
+                    type: Number,
+                },
+                avatar: {
+                    type: String,
                 },
             },
-        ],
+            black: {
+                id: {
+                    type: mongoose.Schema.Types.Mixed, // Can be ObjectId or String for guest users
+                },
+                name: {
+                    type: String,
+                    required: true,
+                },
+                rating: {
+                    type: Number,
+                },
+                avatar: {
+                    type: String,
+                },
+            },
+        },
         lastBoardState: {
             type: String,
             required: true,
         },
-        moves: [
-            {
-                type: String,
-                required: true,
-            },
-        ],
+        moves: {
+            type: mongoose.Schema.Types.Mixed, // Allow flexible move format (objects or strings)
+            default: [],
+        },
         status: {
             type: String,
-            enum: ["win", "ongoing", "draw", "pending", "resign", "timeout"],
+            enum: [
+                "completed",
+                "ongoing",
+                "draw",
+                "pending",
+                "resigned",
+                "timeout",
+            ],
             default: "pending",
         },
         winner: {
@@ -76,7 +82,7 @@ const gameSchema = new mongoose.Schema(
         },
         gameType: {
             type: String,
-            enum: ["P2P", "tournament", "online"],
+            enum: ["p2p", "tournament", "bot", "online"],
         },
         tournamentId: {
             type: mongoose.Schema.Types.ObjectId,
